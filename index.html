@@ -1521,16 +1521,18 @@
 
     /* =========================================================
        LOCAL STORAGE
-       Hanya untuk:
+       Digunakan untuk:
        - Settings opacity
        - Migrasi data versi lama
+       - Status login browser (agar refresh tetap masuk)
        Catatan utama setelah setup Firebase tersimpan di Firestore.
        ========================================================= */
     const STORAGE = {
       legacyNotes: "catatan.notes.v1",
       legacyBroadcasts: "catatan.broadcasts.v1",
       settings: "catatan.settings.v1",
-      migration: "catatan.firebase.migrated.v1"
+      migration: "catatan.firebase.migrated.v1",
+      loginSession: "catatan.login.session.v1"
     };
 
     const ACCENTS = [
@@ -1633,6 +1635,35 @@
         return Array.isArray(parsed) ? parsed : fallback;
       } catch {
         return fallback;
+      }
+    }
+
+    /* =========================================================
+       LOGIN SESSION
+       Menyimpan status login di browser agar refresh tidak
+       kembali ke Welcome. Status hanya dihapus saat Logout.
+       ========================================================= */
+    function hasLoginSession() {
+      try {
+        return localStorage.getItem(STORAGE.loginSession) === "1";
+      } catch {
+        return false;
+      }
+    }
+
+    function saveLoginSession() {
+      try {
+        localStorage.setItem(STORAGE.loginSession, "1");
+      } catch (error) {
+        console.warn("Tidak dapat menyimpan login session:", error);
+      }
+    }
+
+    function clearLoginSession() {
+      try {
+        localStorage.removeItem(STORAGE.loginSession);
+      } catch (error) {
+        console.warn("Tidak dapat menghapus login session:", error);
       }
     }
 
@@ -2335,6 +2366,12 @@
           "REALTIME READY"
         );
 
+        /*
+          Baru dianggap login setelah Firestore berhasil tersambung.
+          Dengan ini refresh/reload akan otomatis membuka workspace.
+        */
+        saveLoginSession();
+
         render();
 
         setTimeout(() => {
@@ -2420,6 +2457,12 @@
        Logout TIDAK menghapus data Firestore.
        ========================================================= */
     async function logoutApp() {
+      /*
+        Logout adalah satu-satunya aksi yang menghapus status login.
+        Data Catatan/Broadcast di Firestore tetap tidak dihapus.
+      */
+      clearLoginSession();
+
       $$(".modal-layer.open").forEach(
         layer => layer.classList.remove("open")
       );
@@ -3266,6 +3309,15 @@
       els.appBackgroundVideo,
       () => true
     );
+
+    /*
+      Jika sebelumnya sudah LOGIN dan belum menekan LOGOUT,
+      langsung masuk lagi setelah refresh / buka ulang halaman.
+      Welcome hanya muncul untuk browser baru atau setelah Logout.
+    */
+    if (hasLoginSession()) {
+      startApp();
+    }
 
     refreshIcons();
   </script>
