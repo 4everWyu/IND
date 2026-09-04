@@ -33,6 +33,10 @@
       --table-opacity:.83;
       --table-action-opacity:.90;
       --table-fade-opacity:.98;
+      /* Diubah realtime dari Settings: 0 = blur transparan */
+      --menu-opacity:.14;
+      --menu-control-opacity:.16;
+      --menu-active-opacity:.20;
       --radius:3px;
       --ease:cubic-bezier(.2,.8,.2,1);
     }
@@ -359,7 +363,7 @@
       z-index:2;
       min-height:100vh;
       opacity:0;
-      background:linear-gradient(180deg,rgba(4,8,13,.16),rgba(4,8,13,.28));
+      background:transparent;
       transition:opacity .28s ease;
     }
     #app.ready{opacity:1}
@@ -372,9 +376,9 @@
       gap:16px;
       padding:0 20px;
       border-bottom:1px solid var(--line-soft);
-      background:rgba(7,12,19,.88);
-      backdrop-filter:blur(11px) saturate(1.08);
-      -webkit-backdrop-filter:blur(10px) saturate(1.08);
+      background:rgb(7 12 19 / var(--menu-opacity));
+      backdrop-filter:blur(18px) saturate(1.14);
+      -webkit-backdrop-filter:blur(18px) saturate(1.14);
     }
 
     .brand{
@@ -390,7 +394,9 @@
       display:grid;
       place-items:center;
       border:1px solid #344157;
-      background:#0f1620;
+      background:rgb(15 22 32 / var(--menu-control-opacity));
+      backdrop-filter:blur(12px) saturate(1.10);
+      -webkit-backdrop-filter:blur(12px) saturate(1.10);
       color:#dce8ff;
     }
 
@@ -418,7 +424,7 @@
       justify-content:center;
       gap:7px;
       border:1px solid rgba(255,255,255,.11);
-      background:rgba(12,19,29,.72);
+      background:rgb(12 19 29 / var(--menu-control-opacity));
       color:#9eabbc;
       font-size:9px;
       font-weight:700;
@@ -438,13 +444,13 @@
     .settings-btn:hover{
       color:#dbe8ff;
       border-color:rgba(102,163,255,.34);
-      background:rgba(31,53,82,.42);
+      background:rgb(31 53 82 / var(--menu-active-opacity));
     }
 
     .logout-btn:hover{
       color:#ffd1d5;
       border-color:rgba(255,107,120,.30);
-      background:rgba(92,28,37,.34);
+      background:rgb(92 28 37 / var(--menu-active-opacity));
     }
 
     .settings-btn:active,
@@ -458,9 +464,9 @@
       align-items:center;
       padding:10px 20px;
       border-bottom:1px solid var(--line-soft);
-      background:rgba(8,14,22,.84);
-      backdrop-filter:blur(11px) saturate(1.08);
-      -webkit-backdrop-filter:blur(10px) saturate(1.08);
+      background:rgb(8 14 22 / var(--menu-opacity));
+      backdrop-filter:blur(18px) saturate(1.14);
+      -webkit-backdrop-filter:blur(18px) saturate(1.14);
     }
 
     .tabs{
@@ -468,9 +474,9 @@
       gap:5px;
       padding:3px;
       border:1px solid var(--line);
-      background:rgba(11,18,28,.74);
-      backdrop-filter:blur(6px);
-      -webkit-backdrop-filter:blur(6px);
+      background:rgb(11 18 28 / var(--menu-control-opacity));
+      backdrop-filter:blur(12px) saturate(1.10);
+      -webkit-backdrop-filter:blur(12px) saturate(1.10);
     }
 
     .tab-btn{
@@ -490,11 +496,11 @@
       transition:.16s ease;
     }
 
-    .tab-btn:hover{color:#c8d2de;background:#121b27}
+    .tab-btn:hover{color:#c8d2de;background:rgb(18 27 39 / var(--menu-active-opacity))}
     .tab-btn.active{
       color:#fff;
       border-color:#334156;
-      background:rgba(25,36,52,.88);
+      background:rgb(25 36 52 / var(--menu-active-opacity));
       box-shadow:0 4px 14px rgba(0,0,0,.18);
     }
 
@@ -506,7 +512,7 @@
       place-items:center;
       border:1px solid #3a485c;
       color:#d6deea;
-      background:#101721;
+      background:rgb(16 23 33 / var(--menu-control-opacity));
       font-size:8px;
     }
 
@@ -532,7 +538,9 @@
       padding:0 40px 0 36px;
       outline:none;
       border:1px solid #314056;
-      background:rgba(8,14,22,.78);
+      background:rgb(8 14 22 / var(--menu-control-opacity));
+      backdrop-filter:blur(12px) saturate(1.10);
+      -webkit-backdrop-filter:blur(12px) saturate(1.10);
       color:#edf2f8;
       font-size:10px;
       transition:.18s ease;
@@ -541,7 +549,7 @@
     .search-input::placeholder{color:#65748a}
     .search-input:focus{
       border-color:#5275ae;
-      background:rgba(10,18,28,.88);
+      background:rgb(10 18 28 / var(--menu-active-opacity));
       box-shadow:0 0 0 2px rgba(86,123,181,.09);
     }
 
@@ -558,14 +566,16 @@
       cursor:pointer;
     }
 
-    .clear-search:hover{color:#d3dbe7;background:#141d29}
+    .clear-search:hover{color:#d3dbe7;background:rgb(20 29 41 / var(--menu-active-opacity))}
 
     .add-btn{
       height:38px;
       min-width:98px;
       padding:0 15px;
       border:1px solid #425778;
-      background:rgba(24,37,55,.88);
+      background:rgb(24 37 55 / var(--menu-active-opacity));
+      backdrop-filter:blur(12px) saturate(1.10);
+      -webkit-backdrop-filter:blur(12px) saturate(1.10);
       color:#fff;
       font-size:10px;
       font-weight:700;
@@ -574,7 +584,7 @@
     }
 
     .add-btn:hover{
-      background:#20314a;
+      background:rgb(32 49 74 / var(--menu-active-opacity));
       border-color:#5c78a5;
     }
 
@@ -1061,6 +1071,12 @@
       margin-bottom:16px;
     }
 
+    .settings-separator{
+      height:1px;
+      margin:18px 0;
+      background:rgba(255,255,255,.08);
+    }
+
     .settings-preview{
       --preview-accent:#5f8fcf;
       overflow:hidden;
@@ -1176,7 +1192,7 @@
       preload="auto"
       aria-hidden="true"
     >
-      <source src="https://res.cloudinary.com/p580fslf/video/upload/v1788492799/robin-cyber-room.1920x1080_bmpbin.mp4" type="video/mp4">
+      <source src="https://res.cloudinary.com/p580fslf/video/upload/v1788523345/cats-in-love.3840x2160_mpjqcr.mp4" type="video/mp4">
     </video>
     <div class="video-shade"></div>
 
@@ -1308,7 +1324,7 @@
       <div class="modal-head">
         <div>
           <h2>Settings</h2>
-          <p>Atur tampilan tabel tanpa mengubah isi catatan.</p>
+          <p>Atur opacity tabel dan menu atas tanpa mengubah isi catatan.</p>
         </div>
         <button class="modal-close" type="button" data-close="settingsModal">
           <i data-lucide="x"></i>
@@ -1341,6 +1357,32 @@
             <span>96% · Gelap</span>
           </div>
 
+          <div class="settings-separator"></div>
+
+          <div class="settings-row">
+            <div>
+              <strong>Opacity Menu Atas</strong>
+              <p>Geser sampai 0% untuk menggunakan efek blur transparan tanpa lapisan gelap.</p>
+            </div>
+            <div class="opacity-value" id="menuOpacityValue">14%</div>
+          </div>
+
+          <input
+            class="opacity-range"
+            id="menuOpacityRange"
+            type="range"
+            min="0"
+            max="80"
+            step="1"
+            value="14"
+            aria-label="Opacity menu atas"
+          >
+
+          <div class="opacity-scale">
+            <span>0% · Blur transparan</span>
+            <span>80% · Gelap</span>
+          </div>
+
           <div class="settings-preview">
             <div class="settings-preview-title">Preview Tabel</div>
             <div class="settings-preview-body">
@@ -1349,13 +1391,13 @@
           </div>
 
           <div class="settings-note">
-            Opacity tersimpan di browser ini. Catatan, Broadcast, FAQ, dan SOP tersimpan realtime di Firebase.
+            Opacity tabel dan menu atas tersimpan di browser ini. Catatan, Broadcast, FAQ, dan SOP tersimpan realtime di Firebase.
           </div>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button class="secondary-btn" id="resetOpacityButton" type="button">Reset 83%</button>
+        <button class="secondary-btn" id="resetOpacityButton" type="button">Reset Tampilan</button>
         <button class="save-btn" type="button" data-close="settingsModal">Selesai</button>
       </div>
     </div>
@@ -1625,7 +1667,10 @@
       broadcasts: [],
       faqs: [],
       sops: [],
-      settings: { tableOpacity: 83 },
+      settings: {
+        tableOpacity: 83,
+        menuOpacity: 14
+      },
       previewId: null,
       deleteId: null,
       cloudConnected: false,
@@ -1652,6 +1697,8 @@
       settingsModal: $("#settingsModal"),
       opacityRange: $("#opacityRange"),
       opacityValue: $("#opacityValue"),
+      menuOpacityRange: $("#menuOpacityRange"),
+      menuOpacityValue: $("#menuOpacityValue"),
       resetOpacityButton: $("#resetOpacityButton"),
       loadingStatus: $("#loadingStatus"),
       loadingBar: $("#loadingBar"),
@@ -1923,6 +1970,15 @@
 
       state.settings.tableOpacity = opacity;
       applyTableOpacity(opacity, false);
+
+      const menuOpacity = clamp(
+        Number(saved.menuOpacity ?? 14),
+        0,
+        80
+      );
+
+      state.settings.menuOpacity = menuOpacity;
+      applyMenuOpacity(menuOpacity, false);
     }
 
     function applyTableOpacity(value, persist = true) {
@@ -1969,6 +2025,55 @@
 
       if (els.opacityValue) {
         els.opacityValue.textContent = percent + "%";
+      }
+
+      if (persist) {
+        localStorage.setItem(
+          STORAGE.settings,
+          JSON.stringify(state.settings)
+        );
+      }
+    }
+
+    function applyMenuOpacity(value, persist = true) {
+      const numericValue = Number(value);
+      const safeValue = Number.isFinite(numericValue)
+        ? numericValue
+        : 14;
+
+      const percent = clamp(
+        Math.round(safeValue),
+        0,
+        80
+      );
+
+      const base = percent / 100;
+      const control = Math.min(.92, base * 1.15);
+      const active = Math.min(.96, base * 1.45);
+
+      state.settings.menuOpacity = percent;
+
+      document.documentElement.style.setProperty(
+        "--menu-opacity",
+        base.toFixed(2)
+      );
+
+      document.documentElement.style.setProperty(
+        "--menu-control-opacity",
+        control.toFixed(3)
+      );
+
+      document.documentElement.style.setProperty(
+        "--menu-active-opacity",
+        active.toFixed(3)
+      );
+
+      if (els.menuOpacityRange) {
+        els.menuOpacityRange.value = String(percent);
+      }
+
+      if (els.menuOpacityValue) {
+        els.menuOpacityValue.textContent = percent + "%";
       }
 
       if (persist) {
@@ -3267,13 +3372,24 @@
       }
     );
 
+    els.menuOpacityRange.addEventListener(
+      "input",
+      event => {
+        applyMenuOpacity(
+          event.target.value,
+          true
+        );
+      }
+    );
+
     els.resetOpacityButton.addEventListener(
       "click",
       () => {
-        applyTableOpacity(83, true);
+        applyTableOpacity(83, false);
+        applyMenuOpacity(14, true);
 
         showToast(
-          "Opacity tabel dikembalikan ke 83%.",
+          "Opacity tabel dan menu dikembalikan ke default.",
           "settings-2"
         );
       }
