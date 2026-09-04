@@ -1135,7 +1135,15 @@
       .settings-btn span, .logout-btn span{display:none}
       .toolbar{padding:9px 12px}
       .main{padding:11px 12px 26px}
-      .tab-btn{min-width:0;padding:0 9px}
+      .tabs{
+        grid-column:1/-1;
+        grid-row:1;
+        width:100%;
+        overflow-x:auto;
+      }
+      .tab-btn{flex:1;min-width:76px;padding:0 8px}
+      .search-box{grid-column:1;grid-row:2;order:2}
+      .add-btn{grid-column:2;grid-row:2;order:3}
       .cards-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .note-card{height:236px}
     }
@@ -1247,6 +1255,18 @@
           <span>Broadcast</span>
           <span class="tab-count" id="broadcastCount">0</span>
         </button>
+
+        <button class="tab-btn" data-type="faq" type="button">
+          <i data-lucide="circle-help"></i>
+          <span>FAQ</span>
+          <span class="tab-count" id="faqCount">0</span>
+        </button>
+
+        <button class="tab-btn" data-type="sop" type="button">
+          <i data-lucide="clipboard-list"></i>
+          <span>SOP</span>
+          <span class="tab-count" id="sopCount">0</span>
+        </button>
       </div>
 
       <div class="search-box">
@@ -1333,7 +1353,7 @@
           </div>
 
           <div class="settings-note">
-            Opacity tersimpan di browser ini. Catatan dan Broadcast tersimpan realtime di Firebase.
+            Opacity tersimpan di browser ini. Catatan, Broadcast, FAQ, dan SOP tersimpan realtime di Firebase.
           </div>
         </div>
       </div>
@@ -1430,7 +1450,7 @@
       ============================================================
 
       KENAPA VERSI INI BERBEDA?
-      - Catatan/Broadcast TIDAK lagi disimpan sebagai data utama
+      - Catatan/Broadcast/FAQ/SOP TIDAK lagi disimpan sebagai data utama
         hanya di localStorage.
       - Data utama disimpan di Firebase Firestore.
       - Semua PC/browser yang membuka website ini dan memakai
@@ -1473,7 +1493,7 @@
 
       6. Versi FIX ini TIDAK memerlukan Firebase Authentication.
          Jadi menu Authentication tidak perlu diaktifkan untuk
-         membuat Catatan/Broadcast realtime bekerja.
+         membuat Catatan/Broadcast/FAQ/SOP realtime bekerja.
 
       PENTING:
       Rule di atas membuat data pada workspace catatan-main dapat
@@ -1515,7 +1535,7 @@
 
     /*
       Semua perangkat dengan WORKSPACE_ID yang sama akan berbagi
-      Catatan dan Broadcast yang sama.
+      Catatan, Broadcast, FAQ, dan SOP yang sama.
     */
     const WORKSPACE_ID = "catatan-main";
 
@@ -1525,7 +1545,7 @@
        - Settings opacity
        - Migrasi data versi lama
        - Status login browser (agar refresh tetap masuk)
-       Catatan utama setelah setup Firebase tersimpan di Firestore.
+       Semua data utama setelah setup Firebase tersimpan di Firestore.
        ========================================================= */
     const STORAGE = {
       legacyNotes: "catatan.notes.v1",
@@ -1546,11 +1566,69 @@
       "#b85f9a"
     ];
 
+    /*
+      FAQ dan SOP disimpan pada collection "notes" memakai category
+      yang berbeda. Dengan cara ini Firestore Rules versi sebelumnya
+      tetap dapat dipakai tanpa menambah izin collection baru.
+    */
+    const TYPE_CONFIG = {
+      notes: {
+        label: "Catatan",
+        workspaceName: "Catatan",
+        searchPlaceholder: "Cari judul atau isi catatan...",
+        emptyTitle: "Belum ada catatan",
+        emptyText: "Tambahkan catatan pertama untuk mulai menyimpan informasi.",
+        formSubtitle: "Simpan teks ke cloud agar otomatis muncul di semua perangkat.",
+        contentPlaceholder: "Tulis isi catatan...",
+        category: "General",
+        savedMessage: "Note Saved Successfully.",
+        deleteTitle: "Hapus catatan?"
+      },
+      broadcast: {
+        label: "Broadcast",
+        workspaceName: "Broadcast Information",
+        searchPlaceholder: "Cari judul atau isi broadcast...",
+        emptyTitle: "Belum ada broadcast",
+        emptyText: "Tambahkan template broadcast pertama.",
+        formSubtitle: "Simpan template broadcast ke cloud realtime.",
+        contentPlaceholder: "Tulis isi broadcast...",
+        category: "General",
+        savedMessage: "Broadcast Saved Successfully.",
+        deleteTitle: "Hapus broadcast?"
+      },
+      faq: {
+        label: "FAQ",
+        workspaceName: "Frequently Asked Questions",
+        searchPlaceholder: "Cari pertanyaan atau jawaban FAQ...",
+        emptyTitle: "Belum ada FAQ",
+        emptyText: "Tambahkan pertanyaan dan jawaban FAQ pertama.",
+        formSubtitle: "Simpan pertanyaan dan jawaban ke cloud realtime.",
+        contentPlaceholder: "Tulis jawaban atau penjelasan FAQ...",
+        category: "FAQ",
+        savedMessage: "FAQ Saved Successfully.",
+        deleteTitle: "Hapus FAQ?"
+      },
+      sop: {
+        label: "SOP",
+        workspaceName: "Standard Operating Procedure",
+        searchPlaceholder: "Cari judul atau isi SOP...",
+        emptyTitle: "Belum ada SOP",
+        emptyText: "Tambahkan prosedur kerja SOP pertama.",
+        formSubtitle: "Simpan prosedur kerja ke cloud realtime.",
+        contentPlaceholder: "Tulis langkah-langkah SOP...",
+        category: "SOP",
+        savedMessage: "SOP Saved Successfully.",
+        deleteTitle: "Hapus SOP?"
+      }
+    };
+
     const state = {
       type: "notes",
       query: "",
       notes: [],
       broadcasts: [],
+      faqs: [],
+      sops: [],
       settings: { tableOpacity: 83 },
       previewId: null,
       deleteId: null,
@@ -1587,6 +1665,8 @@
       tabs: $$(".tab-btn"),
       notesCount: $("#notesCount"),
       broadcastCount: $("#broadcastCount"),
+      faqCount: $("#faqCount"),
+      sopCount: $("#sopCount"),
       searchInput: $("#searchInput"),
       clearSearch: $("#clearSearch"),
       addButton: $("#addButton"),
@@ -1774,17 +1854,32 @@
       };
     }
 
+    function getTypeConfig(type = state.type) {
+      return TYPE_CONFIG[type] || TYPE_CONFIG.notes;
+    }
+
     function currentItems() {
-      return state.type === "notes"
-        ? state.notes
-        : state.broadcasts;
+      const itemsByType = {
+        notes: state.notes,
+        broadcast: state.broadcasts,
+        faq: state.faqs,
+        sop: state.sops
+      };
+
+      return itemsByType[state.type] || state.notes;
+    }
+
+    function collectionNameForType(type) {
+      return type === "broadcast" || type === "broadcasts"
+        ? "broadcasts"
+        : "notes";
     }
 
     function cloudCollection(type) {
       if (!db) throw new Error("Firestore belum terhubung.");
 
       const collectionName =
-        type === "notes" ? "notes" : "broadcasts";
+        collectionNameForType(type);
 
       return collection(
         db,
@@ -1798,7 +1893,7 @@
       if (!db) throw new Error("Firestore belum terhubung.");
 
       const collectionName =
-        type === "notes" ? "notes" : "broadcasts";
+        collectionNameForType(type);
 
       return doc(
         db,
@@ -2079,13 +2174,33 @@
           unsubscribeNotes = onSnapshot(
             cloudCollection("notes"),
             snapshot => {
-              state.notes = snapshot.docs
-                .map(normalizeCloudDoc)
-                .sort(
-                  (a, b) =>
-                    (b.updatedAt || b.createdAt) -
-                    (a.updatedAt || a.createdAt)
-                );
+              const allNoteDocuments = snapshot.docs
+                .map(normalizeCloudDoc);
+
+              const sortLatest = (a, b) =>
+                (b.updatedAt || b.createdAt) -
+                (a.updatedAt || a.createdAt);
+
+              state.faqs = allNoteDocuments
+                .filter(item =>
+                  String(item.category).toUpperCase() === "FAQ"
+                )
+                .sort(sortLatest);
+
+              state.sops = allNoteDocuments
+                .filter(item =>
+                  String(item.category).toUpperCase() === "SOP"
+                )
+                .sort(sortLatest);
+
+              state.notes = allNoteDocuments
+                .filter(item => {
+                  const category =
+                    String(item.category).toUpperCase();
+
+                  return category !== "FAQ" && category !== "SOP";
+                })
+                .sort(sortLatest);
 
               notesReady = true;
               render();
@@ -2459,7 +2574,7 @@
     async function logoutApp() {
       /*
         Logout adalah satu-satunya aksi yang menghapus status login.
-        Data Catatan/Broadcast di Firestore tetap tidak dihapus.
+        Data Catatan/Broadcast/FAQ/SOP di Firestore tetap tidak dihapus.
       */
       clearLoginSession();
 
@@ -2524,6 +2639,8 @@
       */
       state.notes = [];
       state.broadcasts = [];
+      state.faqs = [];
+      state.sops = [];
 
       render();
       refreshIcons();
@@ -2564,6 +2681,12 @@
       els.broadcastCount.textContent =
         state.broadcasts.length;
 
+      els.faqCount.textContent =
+        state.faqs.length;
+
+      els.sopCount.textContent =
+        state.sops.length;
+
       els.tabs.forEach(tab => {
         tab.classList.toggle(
           "active",
@@ -2571,18 +2694,14 @@
         );
       });
 
-      const isNotes =
-        state.type === "notes";
+      const typeConfig =
+        getTypeConfig();
 
       els.workspaceName.textContent =
-        isNotes
-          ? "Catatan"
-          : "Broadcast Information";
+        typeConfig.workspaceName;
 
       els.searchInput.placeholder =
-        isNotes
-          ? "Cari judul atau isi catatan..."
-          : "Cari judul atau isi broadcast...";
+        typeConfig.searchPlaceholder;
 
       const items = filteredItems();
 
@@ -2603,20 +2722,12 @@
         els.emptyTitle.textContent =
           state.query
             ? "Data tidak ditemukan"
-            : (
-                isNotes
-                  ? "Belum ada catatan"
-                  : "Belum ada broadcast"
-              );
+            : typeConfig.emptyTitle;
 
         els.emptyText.textContent =
           state.query
             ? "Coba gunakan kata kunci lain."
-            : (
-                isNotes
-                  ? "Tambahkan catatan pertama untuk mulai menyimpan informasi."
-                  : "Tambahkan template broadcast pertama."
-              );
+            : typeConfig.emptyText;
 
         els.cardsGrid.innerHTML = "";
         refreshIcons();
@@ -2742,18 +2853,14 @@
         ? currentItems().find(x => x.id === id)
         : null;
 
-      const typeLabel =
-        state.type === "notes"
-          ? "Catatan"
-          : "Broadcast";
+      const typeConfig =
+        getTypeConfig();
 
       els.formTitle.textContent =
-        `${isEdit ? "Edit" : "Tambah"} ${typeLabel}`;
+        `${isEdit ? "Edit" : "Tambah"} ${typeConfig.label}`;
 
       els.formSubtitle.textContent =
-        state.type === "notes"
-          ? "Simpan teks ke cloud agar otomatis muncul di semua perangkat."
-          : "Simpan template broadcast ke cloud realtime.";
+        typeConfig.formSubtitle;
 
       els.editingId.value =
         item?.id || "";
@@ -2765,9 +2872,7 @@
         item?.content || "";
 
       els.contentInput.placeholder =
-        state.type === "notes"
-          ? "Tulis isi catatan..."
-          : "Tulis isi broadcast...";
+        typeConfig.contentPlaceholder;
 
       openModal(els.formModal);
 
@@ -2806,6 +2911,7 @@
       }
 
       const type = state.type;
+      const typeConfig = getTypeConfig(type);
       const now = Date.now();
 
       let request;
@@ -2816,6 +2922,7 @@
           {
             title,
             content,
+            category: typeConfig.category,
             updatedAtMs: now,
             cloudUpdatedAt: serverTimestamp()
           },
@@ -2836,7 +2943,7 @@
           {
             title,
             content,
-            category: "General",
+            category: typeConfig.category,
             createdAtMs: now,
             updatedAtMs: now,
             cloudUpdatedAt: serverTimestamp()
@@ -2846,7 +2953,7 @@
 
         showToast(
           navigator.onLine
-            ? "Catatan sedang disinkronkan..."
+            ? `${typeConfig.label} sedang disinkronkan...`
             : "Disimpan offline. Akan sync saat internet kembali.",
           "cloud"
         );
@@ -2861,9 +2968,7 @@
       request
         .then(() => {
           showToast(
-            type === "notes"
-              ? "Note Saved Succesfully."
-              : "Broadcast Saved Succesfully.",
+            typeConfig.savedMessage,
             "cloud-check"
           );
         })
@@ -3000,9 +3105,7 @@
       state.deleteId = id;
 
       els.deleteTitle.textContent =
-        state.type === "notes"
-          ? "Hapus catatan?"
-          : "Hapus broadcast?";
+        getTypeConfig().deleteTitle;
 
       openModal(els.deleteModal);
     }
@@ -3143,9 +3246,6 @@
       }
     );
 
-    /* =========================================================
-       EVENTS
-       ========================================================= */
     els.loginButton.addEventListener(
       "click",
       startApp
@@ -3289,17 +3389,10 @@
       }
     );
 
-    /*
-      Terapkan opacity tersimpan sebelum login.
-      Catatan baru dimuat dari Firestore saat CLICK TO LOGIN.
-    */
+ 
     loadSettings();
 
-    /*
-      Kedua background tetap dipersiapkan sebagai loop tahan-pause.
-      Kafka boleh tetap berjalan di belakang sehingga tidak freeze
-      saat transisi masuk.
-    */
+  
     setupResilientVideo(
       els.welcomeVideo,
       () => true
@@ -3310,11 +3403,7 @@
       () => true
     );
 
-    /*
-      Jika sebelumnya sudah LOGIN dan belum menekan LOGOUT,
-      langsung masuk lagi setelah refresh / buka ulang halaman.
-      Welcome hanya muncul untuk browser baru atau setelah Logout.
-    */
+  
     if (hasLoginSession()) {
       startApp();
     }
