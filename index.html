@@ -2378,142 +2378,357 @@
     function setupResilientVideo(video, shouldPlay) {
       if (!video) return;
 
+      /*
+        Native `loop` pada beberapa browser dapat berhenti di frame
+        terakhir untuk MP4 remote tertentu. Karena itu looping diatur
+        manual supaya event `ended` tetap dapat dipakai sebagai fallback.
+      */
       video.muted = true;
       video.defaultMuted = true;
-      video.loop = true;
       video.playsInline = true;
+      video.autoplay = true;
+      video.preload = "auto";
+      video.loop = false;
 
       video.setAttribute("muted", "");
       video.setAttribute("playsinline", "");
-      video.setAttribute("loop", "");
+      video.setAttribute("autoplay", "");
+      video.setAttribute("preload", "auto");
+      video.removeAttribute("loop");
 
-      let lastTime = -1;
-      let stagnantChecks = 0;
       let retryTimer = null;
+      let recoveryTimer = null;
+      let lastObservedTime = -1;
+      let lastProgressAt = Date.now();
+      let stagnantChecks = 0;
+      let reloadAttempts = 0;
+      let restarting = false;
+
+      const canRun = () => {
+        try {
+          return Boolean(shouldPlay());
+        } catch {
+          return true;
+        }
+      };
 
       const tryPlay = () => {
-        if (!shouldPlay()) return;
+        if (!canRun()) return;
 
-        const promise = video.play();
+        video.muted = true;
+        video.defaultMuted = true;
+
+        let promise;
+
+        try {
+          promise = video.play();
+        } catch {
+          scheduleRetry(250);
+          return;
+        }
 
         if (
           promise &&
           typeof promise.catch === "function"
         ) {
-          promise.catch(() => {});
+          promise.catch(() => {
+            scheduleRetry(250);
+          });
         }
       };
 
-      const scheduleRetry = (delay = 350) => {
+      const scheduleRetry = (delay = 250) => {
         clearTimeout(retryTimer);
 
-        retryTimer = setTimeout(
-          tryPlay,
-          delay
-        );
+        retryTimer = setTimeout(() => {
+          tryPlay();
+        }, delay);
       };
 
-      video.addEventListener(
-        "ended",
-        () => {
-          try {
+      const restartFromBeginning = (reason = "loop") => {
+        if (!canRun() || restarting) return;
+
+        restarting = true;
+        stagnantChecks = 0;
+        lastObservedTime = 0;
+        lastProgressAt = Date.now();
+
+        try {
+          /*
+            Jangan menunggu `ended` saja. Pada sebagian browser video
+            dapat berhenti tepat sebelum duration dan `ended` tidak muncul.
+          */
+          if (video.fastSeek && Number.isFinite(video.duration)) {
+            try {
+              video.fastSeek(0);
+            } catch {
+              video.currentTime = 0;
+            }
+          } else {
             video.currentTime = 0;
-          } catch {}
-
-          scheduleRetry(20);
-        }
-      );
-
-      video.addEventListener(
-        "pause",
-        () => {
-          if (shouldPlay()) {
-            scheduleRetry(160);
           }
+        } catch {}
+
+        requestAnimationFrame(() => {
+          restarting = false;
+          tryPlay();
+        });
+      };
+
+      const reloadMedia = () => {
+        if (!canRun()) return;
+
+        clearTimeout(recoveryTimer);
+        recoveryTimer = null;
+
+        /*
+          Reload hanya dipakai sebagai recovery terakhir agar tidak
+          terus-menerus mengunduh ulang video saat koneksi normal.
+        */
+        reloadAttempts += 1;
+
+        try {
+          video.pause();
+        } catch {}
+
+        try {
+          video.currentTime = 0;
+        } catch {}
+
+        try {
+          video.load();
+        } catch {}
+
+        lastObservedTime = 0;
+        lastProgressAt = Date.now();
+        stagnantChecks = 0;
+
+        scheduleRetry(180);
+      };
+
+      const scheduleRecovery = (delay = 1800) => {
+        clearTimeout(recoveryTimer);
+
+        recoveryTimer = setTimeout(() => {
+          if (!canRun() || document.hidden) return;
+
+          const duration = Number(video.duration);
+          const current = Number(video.currentTime || 0);
+          const nearEnd =
+            Number.isFinite(duration) &&
+            duration > 0 &&
+            current >= Math.max(0, duration - 0.35);
+
+          if (nearEnd) {
+            restartFromBeginning("near-end-recovery");
+            return;
+          }
+
+          if (
+            video.readyState < 3 ||
+            video.networkState === HTMLMediaElement.NETWORK_NO_SOURCE ||
+            video.error
+          ) {
+            reloadMedia();
+            return;
+          }
+
+          restartFromBeginning("stalled-recovery");
+        }, delay);
+      };
+
+      video.addEventListener("playing", () => {
+        clearTimeout(recoveryTimer);
+        recoveryTimer = null;
+        lastProgressAt = Date.now();
+        stagnantChecks = 0;
+        reloadAttempts = 0;
+      });
+
+      video.addEventListener("timeupdate", () => {
+        const current = Number(video.currentTime || 0);
+
+        if (
+          lastObservedTime < 0 ||
+          Math.abs(current - lastObservedTime) > 0.02
+        ) {
+          lastObservedTime = current;
+          lastProgressAt = Date.now();
+          stagnantChecks = 0;
         }
-      );
+      });
 
-      video.addEventListener(
-        "stalled",
-        () => scheduleRetry(400)
-      );
+      video.addEventListener("ended", () => {
+        restartFromBeginning("ended");
+      });
 
-      video.addEventListener(
-        "waiting",
-        () => scheduleRetry(400)
-      );
+      video.addEventListener("pause", () => {
+        if (canRun() && !document.hidden && !restarting) {
+          scheduleRetry(120);
+        }
+      });
 
-      video.addEventListener(
-        "canplay",
-        () => scheduleRetry(40)
-      );
+      video.addEventListener("stalled", () => {
+        if (canRun()) {
+          scheduleRecovery(1400);
+        }
+      });
 
-      video.addEventListener(
-        "loadeddata",
-        () => scheduleRetry(40)
-      );
+      video.addEventListener("waiting", () => {
+        if (canRun()) {
+          scheduleRecovery(1800);
+        }
+      });
+
+      video.addEventListener("suspend", () => {
+        if (canRun() && !video.paused) {
+          scheduleRecovery(2200);
+        }
+      });
+
+      video.addEventListener("error", () => {
+        if (canRun()) {
+          scheduleRecovery(450);
+        }
+      });
+
+      video.addEventListener("canplay", () => {
+        clearTimeout(recoveryTimer);
+        recoveryTimer = null;
+        scheduleRetry(40);
+      });
+
+      video.addEventListener("loadeddata", () => {
+        lastProgressAt = Date.now();
+        scheduleRetry(40);
+      });
+
+      video.addEventListener("loadedmetadata", () => {
+        /* Bila browser membuka media pada posisi akhir, langsung reset. */
+        const duration = Number(video.duration);
+        const current = Number(video.currentTime || 0);
+
+        if (
+          Number.isFinite(duration) &&
+          duration > 0 &&
+          current >= Math.max(0, duration - 0.35)
+        ) {
+          restartFromBeginning("metadata-near-end");
+        } else {
+          scheduleRetry(40);
+        }
+      });
 
       /*
-        Watchdog:
-        bila currentTime berhenti bergerak beberapa kali berturut,
-        browser didorong untuk play kembali.
+        Watchdog utama:
+        1. Mendeteksi video yang berhenti di dekat frame terakhir.
+        2. Mendeteksi currentTime yang tidak bergerak walau status masih play.
+        3. Mendeteksi pause/ended yang tidak pulih sendiri.
       */
       setInterval(() => {
-        if (!shouldPlay() || document.hidden) {
-          lastTime = Number(video.currentTime || 0);
+        if (!canRun() || document.hidden) {
+          lastObservedTime = Number(video.currentTime || 0);
+          lastProgressAt = Date.now();
           stagnantChecks = 0;
           return;
         }
 
-        const current = Number(
-          video.currentTime || 0
-        );
+        const current = Number(video.currentTime || 0);
+        const duration = Number(video.duration);
+        const durationKnown =
+          Number.isFinite(duration) && duration > 0;
+        const nearEnd =
+          durationKnown &&
+          current >= Math.max(0, duration - 0.30);
 
-        if (video.paused || video.ended) {
-          tryPlay();
-          stagnantChecks = 0;
-        } else if (
-          Math.abs(current - lastTime) < .01 &&
-          video.readyState >= 2
-        ) {
-          stagnantChecks += 1;
-
-          if (stagnantChecks >= 4) {
-            tryPlay();
-            stagnantChecks = 0;
-          }
-        } else {
-          stagnantChecks = 0;
+        /* Ini yang mencegah MP4 Gojo berhenti di frame terakhir. */
+        if (nearEnd || video.ended) {
+          restartFromBeginning("watchdog-near-end");
+          return;
         }
 
-        lastTime = current;
-      }, 1250);
+        if (video.paused) {
+          tryPlay();
+          return;
+        }
 
-      document.addEventListener(
-        "visibilitychange",
-        () => {
-          if (!document.hidden) {
+        if (
+          lastObservedTime >= 0 &&
+          Math.abs(current - lastObservedTime) < 0.015
+        ) {
+          stagnantChecks += 1;
+        } else {
+          stagnantChecks = 0;
+          lastProgressAt = Date.now();
+        }
+
+        lastObservedTime = current;
+
+        const stuckTooLong =
+          Date.now() - lastProgressAt > 3500;
+
+        if (stagnantChecks >= 3 || stuckTooLong) {
+          if (
+            video.readyState < 3 ||
+            video.networkState === HTMLMediaElement.NETWORK_NO_SOURCE ||
+            video.error
+          ) {
+            /* Batasi reload beruntun; setelah itu coba restart normal. */
+            if (reloadAttempts < 3) {
+              reloadMedia();
+            } else {
+              reloadAttempts = 0;
+              restartFromBeginning("watchdog-hard-restart");
+            }
+          } else {
+            restartFromBeginning("watchdog-stuck");
+          }
+        }
+      }, 900);
+
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+          const duration = Number(video.duration);
+          const current = Number(video.currentTime || 0);
+
+          if (
+            Number.isFinite(duration) &&
+            duration > 0 &&
+            current >= Math.max(0, duration - 0.35)
+          ) {
+            restartFromBeginning("visibility-return");
+          } else {
             scheduleRetry(60);
           }
         }
-      );
+      });
 
-      window.addEventListener(
-        "focus",
-        () => scheduleRetry(60)
-      );
+      window.addEventListener("focus", () => {
+        scheduleRetry(60);
+      });
 
-      window.addEventListener(
-        "pageshow",
-        () => scheduleRetry(60)
-      );
+      window.addEventListener("pageshow", () => {
+        scheduleRetry(60);
+      });
 
-      window.addEventListener(
-        "online",
-        () => scheduleRetry(40)
-      );
+      window.addEventListener("online", () => {
+        if (video.error || video.readyState < 2) {
+          reloadMedia();
+        } else {
+          scheduleRetry(40);
+        }
+      });
 
-      tryPlay();
+      /* Pastikan video mulai dari awal jika file sudah berada di ujung. */
+      if (
+        Number.isFinite(video.duration) &&
+        video.duration > 0 &&
+        Number(video.currentTime || 0) >= Math.max(0, video.duration - 0.35)
+      ) {
+        restartFromBeginning("initial-near-end");
+      } else {
+        tryPlay();
+      }
     }
 
     /* =========================================================
