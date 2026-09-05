@@ -1262,7 +1262,7 @@
           <span class="tab-count" id="notesCount">0</span>
         </button>
 
-        <button class="tab-btn" data-type="Broadcast" type="button">
+        <button class="tab-btn" data-type="broadcast" type="button">
           <i data-lucide="radio-tower"></i>
           <span>BROADCAST</span>
           <span class="tab-count" id="broadcastCount">0</span>
@@ -1897,8 +1897,23 @@
       };
     }
 
+    function normalizeType(type) {
+      const normalized = String(type || "")
+        .trim()
+        .toLowerCase();
+
+      // Terima juga bentuk jamak agar navigasi tetap aman jika ada typo kecil.
+      if (normalized === "broadcasts") {
+        return "broadcast";
+      }
+
+      return Object.prototype.hasOwnProperty.call(TYPE_CONFIG, normalized)
+        ? normalized
+        : "notes";
+    }
+
     function getTypeConfig(type = state.type) {
-      return TYPE_CONFIG[type] || TYPE_CONFIG.notes;
+      return TYPE_CONFIG[normalizeType(type)];
     }
 
     function currentItems() {
@@ -1909,11 +1924,11 @@
         sop: state.sops
       };
 
-      return itemsByType[state.type] || state.notes;
+      return itemsByType[normalizeType(state.type)];
     }
 
     function collectionNameForType(type) {
-      return type === "broadcast" || type === "broadcasts"
+      return normalizeType(type) === "broadcast"
         ? "broadcasts"
         : "notes";
     }
@@ -2933,7 +2948,7 @@
        TAB
        ========================================================= */
     function setType(type) {
-      state.type = type;
+      state.type = normalizeType(type);
       state.query = "";
 
       els.searchInput.value = "";
